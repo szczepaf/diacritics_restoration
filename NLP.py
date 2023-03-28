@@ -1,9 +1,9 @@
 ﻿import wikipedia
-import time
 import pandas as pd
 import re
 import os
 import json
+import requests
 
 
 
@@ -23,7 +23,6 @@ def load_URLs(path:str) -> list:
     #We only need the first column.
     df = pd.read_csv(path)
     URLs = df["article"].tolist()
-    time.sleep(0.5)
     print("URLs loaded.", end = "\n" * 3)
     return URLs
 
@@ -67,7 +66,7 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
 
     print("Creating a corpus from the most read articles in February 2023 at Czech Wikipedia...") 
     corpus = dict()
-    URLs = URLs[:500] #500 articles could be enough for testing
+    URLs = URLs[:300] #500 articles could be enough for testing
     corpus_size = 0
     url_count = 1
 
@@ -104,6 +103,22 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
 
     #now process 15 Czech novels     
     #iterate over all files in the folder "novels"
+
+    #first download the novels from the github repository https://github.com/szczepaf/diacritics_restoration/tree/main/novels and save them to the folder novels
+    #save them to a directory novels
+
+    #code:
+
+    novels = ["babicka.txt", "chram_matky_bozi.txt", "lovci_mamutu.txt", "oliver_twist.txt", "postriziny.txt", "quo_vadis.txt", "velky_gatsby.txt", "zlocin_a_trest.txt", "bila_velryba.txt", "druhe_mesto.txt", "mistr_a_marketka.txt", "ostre_sledovane_vlaky.txt", "promeny.txt", "robinson_crusoe.txt", "zbabelci.txt"]
+
+    # loop through each novel and download it
+    for novel in novels:
+        print(f"Downloading novel {novel}...")
+        url = f'https://raw.githubusercontent.com/szczepaf/diacritics_restoration/main/novels/{novel}'
+        r = requests.get(url)
+        with open(f'novels/{novel}', 'w', encoding='utf-8') as f:
+            f.write(r.text)
+
     i  = 1
     for filename in os.listdir("novels"):
         novel_name = filename.strip("txt")
@@ -120,9 +135,9 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
                 words = line.split()
                 for word in words:
                     process_word(word, corpus, diacritics)
-            corpus_size += len(words)
+                corpus_size += len(words)
 
-    print(f"Corpus created, total number of words in processed articles is: {corpus_size}")
+    print(f"Corpus created, total number of words processed is: {corpus_size}")
     return corpus
 
 
@@ -131,7 +146,6 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
 
 
 def restore_word(word: str, corpus: dict) -> str:
-    wasUpper = word[0].isupper()
     hadTripleDot = word.endswith("...")
     hadDot = (word.endswith(".") and not hadTripleDot)
     hadComma = word.endswith(",")
@@ -143,12 +157,14 @@ def restore_word(word: str, corpus: dict) -> str:
     hadRoundBracketsRight = word.endswith(")")
     hadRoundBracketsLeft = word.startswith("(")
 
-    word_cleared = word_lower.strip(",.!?()[]")
-    word_lower = word.lower()
+    word_cleared = word.strip(",.!?()[]:")
+    wasUpper = word_cleared[0].isupper()
+
+    word_lower = word_cleared.lower()
 
     
-    if word_cleared in corpus:
-        word_restored = max(corpus[word_cleared], key=corpus[word_cleared].get)
+    if word_lower in corpus:
+        word_restored = max(corpus[word_lower], key=corpus[word_lower].get)
     else:
        return word
 
@@ -169,7 +185,7 @@ def restore_word(word: str, corpus: dict) -> str:
         word_restored += ":"
     #restore all brackets, square and round
     if hadSquareBracketsLeft:
-        word_restored += "[" + word_restored
+        word_restored = "[" + word_restored
     if hadSquareBracketsRight:
         word_restored += "]"
     if hadRoundBracketsLeft:
@@ -214,9 +230,11 @@ else:
     print("Corpus saved to disk.")
 
 
-#open the file dev.txt and read it
-with open("eval.txt", "r", encoding="utf-8") as f:
-    text = f.read()
+
+#Get the dev data from the URL https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt and load it into a variable called "dev_data" using the library requests
+dev_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt").text
+
+print(restore_diacritics(dev_data, corpus))
+print(len(restore_diacritics(dev_data, corpus).split()))
 
 
-print(restore_diacritics(text, corpus))
