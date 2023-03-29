@@ -4,7 +4,7 @@ import re
 import os
 import json
 import requests
-
+import jellyfish
 
 
 #This will be a program for the restoration of czech diacritics.
@@ -66,7 +66,7 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
 
     print("Creating a corpus from the most read articles in February 2023 at Czech Wikipedia...") 
     corpus = dict()
-    URLs = URLs[:300] #500 articles could be enough for testing
+    URLs = URLs[:300] #300 articles could be enough data
     corpus_size = 0
     url_count = 1
 
@@ -234,7 +234,22 @@ else:
 #Get the dev data from the URL https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt and load it into a variable called "dev_data" using the library requests
 dev_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt").text
 
-print(restore_diacritics(dev_data, corpus))
-print(len(restore_diacritics(dev_data, corpus).split()))
+restored_dev_data = (restore_diacritics(dev_data, corpus))
+
+#read the correct dev data from the file dev_data_correct
+with open("dev_data_correct.txt", "r", encoding="utf-8") as f:
+    dev_data_correct = f.read()
 
 
+
+#do the same with jellyfish lavenshtein distance
+print(f"Lavenshtein distance of correct data and dev_data is: {round(jellyfish.levenshtein_distance(dev_data_correct, dev_data), 2)}")
+print(f"Lavenshtein distance of correct data and dev_data_restored is: {round(jellyfish.levenshtein_distance(dev_data_correct, restored_dev_data), 2)}")
+
+#and finally with jaro distance
+print(f"Jaro similarity of correct data and dev_data is: {round(jellyfish.jaro_distance(dev_data_correct, dev_data), 2)}")
+print(f"Jaro similarity of correct data and dev_data_restored is: {round(jellyfish.jaro_distance(dev_data_correct, restored_dev_data), 2)}")
+
+#and with jaro-winkler distance
+print(f"Jaro-Winkler similarity of correct data and dev_data is: {round(jellyfish.jaro_winkler(dev_data_correct, dev_data), 2)}")
+print(f"Jaro-Winkler similarity of correct data and dev_data_restored is: {round(jellyfish.jaro_winkler(dev_data_correct, restored_dev_data), 2)}")
