@@ -1,6 +1,4 @@
-﻿import wikipedia
-import csv
-import re
+﻿import re
 import os
 import json
 import requests
@@ -85,7 +83,7 @@ def create_mapping(diacritics: list) -> dict:
         url = f'https://raw.githubusercontent.com/szczepaf/diacritics_restoration/main/training_data/novels/{novel}'
         novel_text = requests.get(url).text
         novel_name = novel.strip("txt")
-        print(f"Processing novel {novel_name} - {i} out of total 15...", end = "\n")
+        print(f"Processing novel {novel_name} - {i} out of total 15...", end = "\n" * 2)
         i += 1
 
         words = novel_text.split()
@@ -184,6 +182,8 @@ def accuracy(gold: str, system: str) -> float:
     assert isinstance(gold, str) and isinstance(system, str), "The gold and system outputs must be strings"
 
     gold, system = gold.split(), system.split()
+    
+    #Uncomment this to see the each of the original and corrupted/restored words.
     #for i in range(min(len(gold), len(system))):
     #    print(f"{i}, {gold[i]}, {system[i]}")
 
@@ -200,7 +200,7 @@ def accuracy(gold: str, system: str) -> float:
     return correct / words
 
 
-def evaluate(data_before_correction:str, data_after_correction: str, correct_data: str) -> None:
+def evaluate(data_before_correction:str, data_after_correction: str, correct_data: str, correct_data2) -> None:
     """Evaluates the quality of the correction."""
     print("Running the evaluation...", end = "\n")
 
@@ -216,7 +216,7 @@ def evaluate(data_before_correction:str, data_after_correction: str, correct_dat
 
 
     #compute the accuracy using the function accuracy
-    #accuracy_before_correction = round(accuracy(correct_data, data_before_correction), 3)
+    accuracy_before_correction = round(accuracy(correct_data2, data_before_correction), 3)
     accuracy_after_correction = round(accuracy(correct_data, data_after_correction), 3)
 
 
@@ -227,7 +227,7 @@ def evaluate(data_before_correction:str, data_after_correction: str, correct_dat
     t.add_row(["Levenshtein distance", lavenshtein_distance_corrupted_original, lavenshtein_distance_corrected_and_original])
     t.add_row(["Jaro similarity", jaro_similarity_corrupted_original, jaro_similarity_corrected_and_original])
     t.add_row(["Jaro-Winkler similarity", jaro_winkler_similarity_corrupted_original, jaro_winkler_similarity_corrected_and_original])
-    t.add_row(["Accuracy", "~0.7", accuracy_after_correction])
+    t.add_row(["Accuracy", accuracy_before_correction, accuracy_after_correction])
     print(t)
 
 
@@ -245,45 +245,78 @@ def main():
 
     #If mapping already exists, load it from disk, otherwise create it
     if os.path.exists("mapping.json"):
+
         with open("mapping.json", "r", encoding="utf-8") as f:
             mapping = json.load(f)
+
         print("The experiment has been run before. Training data has already been downloaded and mapping created...", end = "\n" * 3)
         print("mapping loaded from disk.")
     else:
         print("Experiment is running for the first time on this machine. The training data will be downloaded and mapping created...", end = "\n" * 3)
+        
         mapping = create_mapping(diacritics)
+        
         with open("mapping.json", "w", encoding="utf-8") as f:
             json.dump(mapping, f, indent=2)
         print("mapping saved to disk.", end = "\n" * 2)
 
-    #Get the dev data from the class website
+    #Get the dev and eval data from the class website
     print("Gathering dev data...")
     dev_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt").text
+    eval_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-etest.txt").text
+
 
     #restore diacritics
-    print("Restoring diacritics...")
+    print("Restoring diacritics for dev data...")
     dev_data_restored = (restore_diacritics(dev_data, mapping))
+
 
     #read the correct (original, non-corrupted) dev data from the file dev_data_correct
     with open("dev_data_correct.txt", "r", encoding="utf-8") as f:
         dev_data_correct = f.read()
 
-    #accuracy(dev_data, dev_data_correct)
-    
-    evaluate(dev_data, dev_data_restored, dev_data_correct)
+    #read the correct (original, non-corrupted) dev data from the file dev_data_correct
+    #version 2 for eval and dev data:
+    #This is because the lengths are differing by 2 when comparing the corrupted and original data.
+    #The cause is due to the fact that some non-ASCII characters coming in the corrupted files are interpreted as a whitespace.
+    #We need to manualy change about 10 characters in the files so the accuracy comparison word by word is possible.
+    #This does not affect the results in any measurable way.
+
+    with open("dev_data_correct2.txt", "r", encoding="utf-8") as f:
+        dev_data_correct2 = f.read()
+
+
+    #Repeat the process with Evaluation data
+    print("Gathering eval data...")
+    print("Restoring diacritics for eval data...")
+
+    eval_data_restored = (restore_diacritics(eval_data, mapping))
+
+    with open("eval_correct.txt", "r", encoding="utf-8") as f:
+        eval_correct = f.read()
+
+    with open("eval_correct2.txt", "r", encoding="utf-8") as f:
+        eval_correct2 = f.read()
+
+    print("EVALUATING DEV DATA", end = "\n" * 2)
+    evaluate(dev_data, dev_data_restored, dev_data_correct, dev_data_correct2)
+    print("\n" * 3)
+
+    print("EVALUATING EVAL DATA", end = "\n" * 2)
+    evaluate(eval_data, eval_data_restored, eval_correct2, eval_correct)
+    print("\n" * 3)
+
+
 
     #write the resulting corrected data to a file results.txt
-    with open("results.txt", "w", encoding="utf-8") as f:
+    with open("resultsDev.txt", "w", encoding="utf-8") as f:
         f.write(dev_data_restored)
 
+    with open("resultsEval.txt", "w", encoding="utf-8") as f:
+        f.write(eval_data_restored)
 
 
 if __name__ == "__main__":
     main()
 
 
-#TODO
-#Try greenhorn eval metric FOR BOTH FILES
-#ADD wiki articles to github and modify readmes and comments, remove urls stuff
-#clear training data
-#Remove novels file, top articles, stop writing novels to disk
