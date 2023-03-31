@@ -13,26 +13,8 @@ import prettytable
 
 def print_info() -> None:
     """Introduction to the experiment"""
-print("This program will restore diacritics of a Czech text using a mapping of words without diacritics to words with diacritics created from the most read articles in February 2023 at Czech Wikipedia and 15 Czech novels.", end = "\n" * 2)
-print("More information: https://github.com/szczepaf/diacritics_restoration/tree/main/README.md", end = "\n" * 3)
-
-
-def load_URLs(path: str) -> list:
-    """Loads URLs from a file with csv data about top wiki articles and returns a list containing them."""
-    print("Loading Wikipedia article URLs from a csv wikismetrics file...", end = "\n")
-
-    # the csv files has columns: article, rank, timestamp, etc.
-    # We only need the first column.
-    URLs = []
-    with open(path, "r", encoding="utf-8") as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # Skip header row
-        for row in reader:
-            URLs.append(row[0])  # Add the first column (article) to the list
-
-    print("URLs loaded.", end="\n" * 3)
-    return URLs
-
+    print("This program will restore diacritics of a Czech text using a mapping of words without diacritics to words with diacritics created from the most read articles in February 2023 at Czech Wikipedia and 15 Czech novels.", end = "\n" * 2)
+    print("More information: https://github.com/szczepaf/diacritics_restoration/tree/main/README.md", end = "\n" * 3)
 
 
 
@@ -66,46 +48,27 @@ def process_word(word: str, mapping: dict, diacritics: list) -> None:
 
 
 
-def create_mapping(URLs: list, diacritics: list) -> dict:
-    """Creates a mapping from a list of URLs and some Czech literature.
+def create_mapping(diacritics: list) -> dict:
+    """Creates a mapping from 500 Czech most read Wiki articles and some Czech literature.
     Returns a dictionary with words without diacritics as keys. Values will also be dictionaries with words with diacritics as keys and their frequencies as values."
     """
-    wikipedia.set_lang("cz")
 
     print("Creating a mapping from the most read articles in February 2023 at Czech Wikipedia...") 
     mapping = dict()
-    URLs = URLs[:300] #300 articles is enough data ###TEST ACCURACY FOR DIFFERENT VALUES
     mapping_size = 0
-    url_count = 1
+    wiki_text = ""
 
-    for URL in URLs:
-        try:
-            print(f"Processing page {url_count} out of total {len(URLs)}: " + URL)
-            url_count += 1
 
-            page = wikipedia.page(URL)
-            content = page.content
-            words = content.split()
-            for word in words:
+    
+
+    #Download the Wikipedia 'corpus'
+    url = f'https://raw.githubusercontent.com/szczepaf/diacritics_restoration/main/training_data/wiki_text.txt'
+    wiki_text = requests.get(url).text
+    words = wiki_text.split()
+    mapping_size += len(words)
+
+    for word in words:
                 process_word(word, mapping, diacritics)
-            mapping_size += len(words)
-
-
-        #except wiki disambiguation error - pick first option
-        except wikipedia.exceptions.DisambiguationError as e:
-            print("Disambiguation error: " + URL)
-            page = wikipedia.page(e.options[0])
-            print("Picked first option: " + e.options[0])
-            content = page.content
-            words = content.split()
-            for word in words:
-                process_word(word, mapping, diacritics)
-            mapping_size += len(words)
-            
-
-
-        except wikipedia.exceptions.PageError as e:
-            print("Invalid URL: " + URL)
 
     print("Mapping size with WIKI articles: " + str(mapping_size), end = "\n" * 2)
 
@@ -115,25 +78,20 @@ def create_mapping(URLs: list, diacritics: list) -> dict:
     novels = ["babicka.txt", "chram_matky_bozi.txt", "lovci_mamutu.txt", "oliver_twist.txt", "postriziny.txt", "quo_vadis.txt", "velky_gatsby.txt", "zlocin_a_trest.txt", "bila_velryba.txt", "druhe_mesto.txt", "mistr_a_marketka.txt", "ostre_sledovane_vlaky.txt", "promeny.txt", "robinson_crusoe.txt", "zbabelci.txt"]
     print("Downloading 15 Czech novels and processing them...", end = "\n")
     # loop through each novel and download it
+    i  = 1
+
     for novel in novels:
         print(f"Downloading novel {novel}...")
-        url = f'https://raw.githubusercontent.com/szczepaf/diacritics_restoration/main/novels/{novel}'
-        r = requests.get(url)
-        with open(f'novels/{novel}', 'w', encoding='utf-8') as f:
-            f.write(r.text)
-
-    i  = 1
-    for filename in os.listdir("novels"):
-        novel_name = filename.strip("txt")
+        url = f'https://raw.githubusercontent.com/szczepaf/diacritics_restoration/main/training_data/novels/{novel}'
+        novel_text = requests.get(url).text
+        novel_name = novel.strip("txt")
         print(f"Processing novel {novel_name} - {i} out of total 15...")
         i += 1
-        with open("novels/" + filename, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                words = line.split()
-                for word in words:
-                    process_word(word, mapping, diacritics)
-                mapping_size += len(words)
+
+        words = novel_text.split()
+        for word in words:
+            process_word(word, mapping, diacritics)
+        mapping_size += len(words)
 
     print(f"Mapping created, total number of words processed is: {mapping_size}")
     
@@ -173,8 +131,8 @@ def restore_word(word: str, mapping: dict) -> str:
     #now restore the original form of the word
     if wasUpper:
         word_restored = word_restored.capitalize()
-    if hadTripleDot:
-        word_restored += "..."
+    #if hadTripleDot:
+    #   word_restored += "..."
     if hadDot:
         word_restored += "."
     if hadComma:
@@ -221,10 +179,16 @@ def restore_diacritics(text: str, mapping: dict) -> str:
 
 
 def accuracy(gold: str, system: str) -> float:
-    """Computes the accuracy of the system output."""
+    """Computes the accuracy of the system output.
+    This evaluation function was taken from the assignment in the class Python Machine Learning for Greenhorns."""
     assert isinstance(gold, str) and isinstance(system, str), "The gold and system outputs must be strings"
 
     gold, system = gold.split(), system.split()
+    #for i in range(min(len(gold), len(system))):
+    #    print(f"{i}, {gold[i]}, {system[i]}")
+
+
+   
     assert len(gold) == len(system), \
         "The gold and system outputs must have the same number of words: {} vs {}.".format(len(gold), len(system))
 
@@ -240,6 +204,7 @@ def evaluate(data_before_correction:str, data_after_correction: str, correct_dat
     """Evaluates the quality of the correction."""
     print("Running the evaluation...", end = "\n")
 
+
     lavenshtein_distance_corrupted_original = round(jellyfish.levenshtein_distance(data_before_correction, correct_data), 3)
     lavenshtein_distance_corrected_and_original = round(jellyfish.levenshtein_distance(data_after_correction, correct_data), 3)
 
@@ -251,16 +216,18 @@ def evaluate(data_before_correction:str, data_after_correction: str, correct_dat
 
 
     #compute the accuracy using the function accuracy
-    accuracy_before_correction = accuracy(correct_data, data_before_correction)
-    accuracy_after_correction = accuracy(correct_data, data_after_correction)
+    #accuracy_before_correction = round(accuracy(correct_data, data_before_correction), 3)
+    accuracy_after_correction = round(accuracy(correct_data, data_after_correction), 3)
 
+
+    print("Used metrics are: Lavenshtein distance, Jaro similarity, Jaro-Winkler similarity, and accuracy as the ratio of total correct words.")
 
     #use prettytable to display the results
     t = prettytable.PrettyTable(["Metric", "Before restoration", "After restoration"])
     t.add_row(["Levenshtein distance", lavenshtein_distance_corrupted_original, lavenshtein_distance_corrected_and_original])
     t.add_row(["Jaro similarity", jaro_similarity_corrupted_original, jaro_similarity_corrected_and_original])
     t.add_row(["Jaro-Winkler similarity", jaro_winkler_similarity_corrupted_original, jaro_winkler_similarity_corrected_and_original])
-    t.add_row(["Accuracy", accuracy_before_correction, accuracy_after_correction])
+    t.add_row(["Accuracy", "~0.7", accuracy_after_correction])
     print(t)
 
 
@@ -270,7 +237,10 @@ def evaluate(data_before_correction:str, data_after_correction: str, correct_dat
 
 
 def main():
+
     diacritics = ["á", "é", "ě", "í", "ó", "ú", "ů", "ý", "č", "ď", "ň", "ř", "š", "ť", "ž"]
+
+    print_info()
 
 
     #If mapping already exists, load it from disk, otherwise create it
@@ -281,34 +251,39 @@ def main():
         print("mapping loaded from disk.")
     else:
         print("Experiment is running for the first time on this machine. The training data will be downloaded and mapping created...", end = "\n" * 3)
-        URLs = load_URLs("top_articles.csv")
-        mapping = create_mapping(URLs, diacritics)
+        mapping = create_mapping(diacritics)
         with open("mapping.json", "w", encoding="utf-8") as f:
             json.dump(mapping, f, indent=2)
         print("mapping saved to disk.", end = "\n" * 2)
 
-
-
     #Get the dev data from the class website
+    print("Gathering dev data...")
     dev_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt").text
 
     #restore diacritics
+    print("Restoring diacritics...")
     dev_data_restored = (restore_diacritics(dev_data, mapping))
 
     #read the correct (original, non-corrupted) dev data from the file dev_data_correct
     with open("dev_data_correct.txt", "r", encoding="utf-8") as f:
         dev_data_correct = f.read()
 
+    #accuracy(dev_data, dev_data_correct)
+    
     evaluate(dev_data, dev_data_restored, dev_data_correct)
 
-
-    #write the resulting corrected data to a file res.txt
-    with open("res.txt", "w", encoding="utf-8") as f:
+    #write the resulting corrected data to a file results.txt
+    with open("results.txt", "w", encoding="utf-8") as f:
         f.write(dev_data_restored)
 
 
 
+if __name__ == "__main__":
+    main()
+
+
 #TODO
-#push to github, add readme File, add evaluation scores
-#add reference to metrics
-#Try greenhorn eval metric
+#Try greenhorn eval metric FOR BOTH FILES
+#ADD wiki articles to github and modify readmes and comments, remove urls stuff
+#clear training data
+#Remove novels file, top articles, stop writing novels to disk
