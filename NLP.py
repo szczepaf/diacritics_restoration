@@ -1,4 +1,3 @@
-﻿import wikipedia
 import csv
 import re
 import os
