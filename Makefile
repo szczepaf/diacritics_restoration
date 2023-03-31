@@ -3,7 +3,7 @@
 PYTHON = python3
 VENV_DIR = venv
 VENV_ACTIVATE = $(VENV_DIR)/bin/activate
-SCRIPT = diacritics_restoration.py
+SCRIPT = NLP.py
 
 all: setup run
 

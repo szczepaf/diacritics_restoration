@@ -1,30 +1,38 @@
 ﻿import wikipedia
-import pandas as pd
+import csv
 import re
 import os
 import json
 import requests
 import jellyfish
+import prettytable
 
 
-#This will be a program for the restoration of czech diacritics.
-#In the first step, a corpus will be created from the Czech Wikipedia.
-#A dictionary with words with removed diacritics as keys and most frequent corresponding words with diacritics as values will be created.
-#The program will then be able to restore diacritics in a text.
+#README: https://github.com/szczepaf/diacritics_restoration/tree/main/README.md
 
 
+def print_info() -> None:
+    """Introduction to the experiment"""
+print("This program will restore diacritics of a Czech text using a mapping of words without diacritics to words with diacritics created from the most read articles in February 2023 at Czech Wikipedia and 15 Czech novels.", end = "\n" * 2)
+print("More information: https://github.com/szczepaf/diacritics_restoration/tree/main/README.md", end = "\n" * 3)
 
-def load_URLs(path:str) -> list:
 
+def load_URLs(path: str) -> list:
     """Loads URLs from a file with csv data about top wiki articles and returns a list containing them."""
-    print("Loading URLs from a csv wikismetrics file...")
+    print("Loading Wikipedia article URLs from a csv wikismetrics file...", end = "\n")
 
-    #the csv files has columns article, rank, timestamp, etc.
-    #We only need the first column.
-    df = pd.read_csv(path)
-    URLs = df["article"].tolist()
-    print("URLs loaded.", end = "\n" * 3)
+    # the csv files has columns: article, rank, timestamp, etc.
+    # We only need the first column.
+    URLs = []
+    with open(path, "r", encoding="utf-8") as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)  # Skip header row
+        for row in reader:
+            URLs.append(row[0])  # Add the first column (article) to the list
+
+    print("URLs loaded.", end="\n" * 3)
     return URLs
+
 
 
 
@@ -38,8 +46,8 @@ def remove_diacritics(word: str, diacritics: list) -> str:
     return word_without_diacritics
 
 
-def process_word(word: str, corpus: dict, diacritics: list) -> None:
-    """Processes a word and adds it to the corpus."""
+def process_word(word: str, mapping: dict, diacritics: list) -> None:
+    """Processes a word and adds it to the mapping."""
     word = word.lower()
     word = word.strip(".,;:!?()[]{}\"\'")
     if word == "":
@@ -47,27 +55,27 @@ def process_word(word: str, corpus: dict, diacritics: list) -> None:
 
     if any(char in diacritics for char in word):
         word_without_diacritics = remove_diacritics(word, diacritics)
-        if word_without_diacritics in corpus:
-            if word in corpus[word_without_diacritics]:
-                corpus[word_without_diacritics][word] += 1
+        if word_without_diacritics in mapping:
+            if word in mapping[word_without_diacritics]:
+                mapping[word_without_diacritics][word] += 1
             else:
-                corpus[word_without_diacritics][word] = 1
+                mapping[word_without_diacritics][word] = 1
         else:
-            corpus[word_without_diacritics] = dict()
-            corpus[word_without_diacritics][word] = 1
+            mapping[word_without_diacritics] = dict()
+            mapping[word_without_diacritics][word] = 1
 
 
 
-def create_corpus(URLs: list, diacritics: list) -> dict:
-    """Creates a corpus from a list of URLs.
+def create_mapping(URLs: list, diacritics: list) -> dict:
+    """Creates a mapping from a list of URLs and some Czech literature.
     Returns a dictionary with words without diacritics as keys. Values will also be dictionaries with words with diacritics as keys and their frequencies as values."
     """
     wikipedia.set_lang("cz")
 
-    print("Creating a corpus from the most read articles in February 2023 at Czech Wikipedia...") 
-    corpus = dict()
-    URLs = URLs[:300] #300 articles could be enough data
-    corpus_size = 0
+    print("Creating a mapping from the most read articles in February 2023 at Czech Wikipedia...") 
+    mapping = dict()
+    URLs = URLs[:300] #300 articles is enough data ###TEST ACCURACY FOR DIFFERENT VALUES
+    mapping_size = 0
     url_count = 1
 
     for URL in URLs:
@@ -79,8 +87,8 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
             content = page.content
             words = content.split()
             for word in words:
-                process_word(word, corpus, diacritics)
-            corpus_size += len(words)
+                process_word(word, mapping, diacritics)
+            mapping_size += len(words)
 
 
         #except wiki disambiguation error - pick first option
@@ -91,26 +99,21 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
             content = page.content
             words = content.split()
             for word in words:
-                process_word(word, corpus, diacritics)
-            corpus_size += len(words)
+                process_word(word, mapping, diacritics)
+            mapping_size += len(words)
             
 
 
         except wikipedia.exceptions.PageError as e:
             print("Invalid URL: " + URL)
 
-    print("Corpus size with WIKI articles: " + str(corpus_size))
+    print("Mapping size with WIKI articles: " + str(mapping_size), end = "\n" * 2)
 
-    #now process 15 Czech novels     
-    #iterate over all files in the folder "novels"
 
-    #first download the novels from the github repository https://github.com/szczepaf/diacritics_restoration/tree/main/novels and save them to the folder novels
-    #save them to a directory novels
-
-    #code:
+    #Add 15 Czech novels to the mapping
 
     novels = ["babicka.txt", "chram_matky_bozi.txt", "lovci_mamutu.txt", "oliver_twist.txt", "postriziny.txt", "quo_vadis.txt", "velky_gatsby.txt", "zlocin_a_trest.txt", "bila_velryba.txt", "druhe_mesto.txt", "mistr_a_marketka.txt", "ostre_sledovane_vlaky.txt", "promeny.txt", "robinson_crusoe.txt", "zbabelci.txt"]
-
+    print("Downloading 15 Czech novels and processing them...", end = "\n")
     # loop through each novel and download it
     for novel in novels:
         print(f"Downloading novel {novel}...")
@@ -125,27 +128,26 @@ def create_corpus(URLs: list, diacritics: list) -> dict:
         print(f"Processing novel {novel_name} - {i} out of total 15...")
         i += 1
         with open("novels/" + filename, "r", encoding="utf-8") as f:
-            #content = f.read()
-            #words = content.split()
-            #for word in words:
-            #change the code so we dont load the whole file into memory
-            #but instead process the file line by line
             for line in f:
                 line = line.strip()
                 words = line.split()
                 for word in words:
-                    process_word(word, corpus, diacritics)
-                corpus_size += len(words)
+                    process_word(word, mapping, diacritics)
+                mapping_size += len(words)
 
-    print(f"Corpus created, total number of words processed is: {corpus_size}")
-    return corpus
-
-
+    print(f"Mapping created, total number of words processed is: {mapping_size}")
+    
 
 
+    return mapping
 
 
-def restore_word(word: str, corpus: dict) -> str:
+
+
+
+
+def restore_word(word: str, mapping: dict) -> str:
+    """Restores a word with diacritics from a mapping."""
     hadTripleDot = word.endswith("...")
     hadDot = (word.endswith(".") and not hadTripleDot)
     hadComma = word.endswith(",")
@@ -163,8 +165,8 @@ def restore_word(word: str, corpus: dict) -> str:
     word_lower = word_cleared.lower()
 
     
-    if word_lower in corpus:
-        word_restored = max(corpus[word_lower], key=corpus[word_lower].get)
+    if word_lower in mapping:
+        word_restored = max(mapping[word_lower], key=mapping[word_lower].get)
     else:
        return word
 
@@ -196,8 +198,11 @@ def restore_word(word: str, corpus: dict) -> str:
     return word_restored
 
 
-def restore_diacritics(text: str, corpus: dict) -> str:
-    ##Replace non ascii letters with stars - replace two nonasci letters with one star using regex
+def restore_diacritics(text: str, mapping: dict) -> str:
+    """Restores diacritics in a text.
+    The function first clears the text of all non-ASCII chars, replaces them with a designated char
+    and then restores diacritics in each word.
+    """
     cleared_text = re.sub(r"[^\x00-\x7F][^\x00-\x7F]", "*", text)
     words = cleared_text.split()
 
@@ -205,7 +210,7 @@ def restore_diacritics(text: str, corpus: dict) -> str:
 
     for word in words:
         if "*" in word:
-            restored_word = restore_word(word, corpus)
+            restored_word = restore_word(word, mapping)
         else:
             restored_word = word
         restored_text += restored_word + " "
@@ -213,43 +218,97 @@ def restore_diacritics(text: str, corpus: dict) -> str:
 
 
 
-URLs = load_URLs("top_articles.csv")
-diacritics = ["á", "é", "ě", "í", "ó", "ú", "ů", "ý", "č", "ď", "ň", "ř", "š", "ť", "ž"]
-
-#check if the current folder contains the json with the corpus called "corpus.json". 
-#If yes, load it. If not, create it.
-
-if os.path.exists("corpus.json"):
-    with open("corpus.json", "r", encoding="utf-8") as f:
-        corpus = json.load(f)
-    print("Corpus loaded from disk.")
-else:
-    corpus = create_corpus(URLs, diacritics)
-    with open("corpus.json", "w", encoding="utf-8") as f:
-        json.dump(corpus, f, indent=2)
-    print("Corpus saved to disk.")
 
 
+def accuracy(gold: str, system: str) -> float:
+    """Computes the accuracy of the system output."""
+    assert isinstance(gold, str) and isinstance(system, str), "The gold and system outputs must be strings"
 
-#Get the dev data from the URL https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt and load it into a variable called "dev_data" using the library requests
-dev_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt").text
+    gold, system = gold.split(), system.split()
+    assert len(gold) == len(system), \
+        "The gold and system outputs must have the same number of words: {} vs {}.".format(len(gold), len(system))
 
-restored_dev_data = (restore_diacritics(dev_data, corpus))
+    words, correct = 0, 0
+    for gold_token, system_token in zip(gold, system):
+        words += 1
+        correct += gold_token == system_token
 
-#read the correct dev data from the file dev_data_correct
-with open("dev_data_correct.txt", "r", encoding="utf-8") as f:
-    dev_data_correct = f.read()
+    return correct / words
+
+
+def evaluate(data_before_correction:str, data_after_correction: str, correct_data: str) -> None:
+    """Evaluates the quality of the correction."""
+    print("Running the evaluation...", end = "\n")
+
+    lavenshtein_distance_corrupted_original = round(jellyfish.levenshtein_distance(data_before_correction, correct_data), 3)
+    lavenshtein_distance_corrected_and_original = round(jellyfish.levenshtein_distance(data_after_correction, correct_data), 3)
+
+    jaro_similarity_corrupted_original = round(jellyfish.jaro_distance(data_before_correction, correct_data), 3)
+    jaro_similarity_corrected_and_original = round(jellyfish.jaro_distance(data_after_correction, correct_data), 3)
+
+    jaro_winkler_similarity_corrupted_original  = round(jellyfish.jaro_winkler(data_before_correction, correct_data), 3)
+    jaro_winkler_similarity_corrected_and_original = round(jellyfish.jaro_winkler(data_after_correction, correct_data), 3)
+
+
+    #compute the accuracy using the function accuracy
+    accuracy_before_correction = accuracy(correct_data, data_before_correction)
+    accuracy_after_correction = accuracy(correct_data, data_after_correction)
+
+
+    #use prettytable to display the results
+    t = prettytable.PrettyTable(["Metric", "Before restoration", "After restoration"])
+    t.add_row(["Levenshtein distance", lavenshtein_distance_corrupted_original, lavenshtein_distance_corrected_and_original])
+    t.add_row(["Jaro similarity", jaro_similarity_corrupted_original, jaro_similarity_corrected_and_original])
+    t.add_row(["Jaro-Winkler similarity", jaro_winkler_similarity_corrupted_original, jaro_winkler_similarity_corrected_and_original])
+    t.add_row(["Accuracy", accuracy_before_correction, accuracy_after_correction])
+    print(t)
+
+
+    
 
 
 
-#do the same with jellyfish lavenshtein distance
-print(f"Lavenshtein distance of correct data and dev_data is: {round(jellyfish.levenshtein_distance(dev_data_correct, dev_data), 2)}")
-print(f"Lavenshtein distance of correct data and dev_data_restored is: {round(jellyfish.levenshtein_distance(dev_data_correct, restored_dev_data), 2)}")
 
-#and finally with jaro distance
-print(f"Jaro similarity of correct data and dev_data is: {round(jellyfish.jaro_distance(dev_data_correct, dev_data), 2)}")
-print(f"Jaro similarity of correct data and dev_data_restored is: {round(jellyfish.jaro_distance(dev_data_correct, restored_dev_data), 2)}")
+def main():
+    diacritics = ["á", "é", "ě", "í", "ó", "ú", "ů", "ý", "č", "ď", "ň", "ř", "š", "ť", "ž"]
 
-#and with jaro-winkler distance
-print(f"Jaro-Winkler similarity of correct data and dev_data is: {round(jellyfish.jaro_winkler(dev_data_correct, dev_data), 2)}")
-print(f"Jaro-Winkler similarity of correct data and dev_data_restored is: {round(jellyfish.jaro_winkler(dev_data_correct, restored_dev_data), 2)}")
+
+    #If mapping already exists, load it from disk, otherwise create it
+    if os.path.exists("mapping.json"):
+        with open("mapping.json", "r", encoding="utf-8") as f:
+            mapping = json.load(f)
+        print("The experiment has been run before. Training data has already been downloaded and mapping created...", end = "\n" * 3)
+        print("mapping loaded from disk.")
+    else:
+        print("Experiment is running for the first time on this machine. The training data will be downloaded and mapping created...", end = "\n" * 3)
+        URLs = load_URLs("top_articles.csv")
+        mapping = create_mapping(URLs, diacritics)
+        with open("mapping.json", "w", encoding="utf-8") as f:
+            json.dump(mapping, f, indent=2)
+        print("mapping saved to disk.", end = "\n" * 2)
+
+
+
+    #Get the dev data from the class website
+    dev_data = requests.get("https://ufal.mff.cuni.cz/~zabokrtsky/courses/npfl124/data/diacritics-dtest.txt").text
+
+    #restore diacritics
+    dev_data_restored = (restore_diacritics(dev_data, mapping))
+
+    #read the correct (original, non-corrupted) dev data from the file dev_data_correct
+    with open("dev_data_correct.txt", "r", encoding="utf-8") as f:
+        dev_data_correct = f.read()
+
+    evaluate(dev_data, dev_data_restored, dev_data_correct)
+
+
+    #write the resulting corrected data to a file res.txt
+    with open("res.txt", "w", encoding="utf-8") as f:
+        f.write(dev_data_restored)
+
+
+
+#TODO
+#push to github, add readme File, add evaluation scores
+#add reference to metrics
+#Try greenhorn eval metric

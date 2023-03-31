@@ -1,4 +1,4 @@
 wikipedia
-pandas
 requests
 jellyfish
+prettytable
