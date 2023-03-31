@@ -279,10 +279,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-#TODO
-#Try greenhorn eval metric FOR BOTH FILES
-#ADD wiki articles to github and modify readmes and comments, remove urls stuff
-#clear training data
-#Remove novels file, top articles, stop writing novels to disk
