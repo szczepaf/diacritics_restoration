@@ -85,7 +85,7 @@ def create_mapping(diacritics: list) -> dict:
         url = f'https://raw.githubusercontent.com/szczepaf/diacritics_restoration/main/training_data/novels/{novel}'
         novel_text = requests.get(url).text
         novel_name = novel.strip("txt")
-        print(f"Processing novel {novel_name} - {i} out of total 15...")
+        print(f"Processing novel {novel_name} - {i} out of total 15...", end = "\n")
         i += 1
 
         words = novel_text.split()
