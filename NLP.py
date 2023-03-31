@@ -202,18 +202,15 @@ def accuracy(gold: str, system: str) -> float:
 
 def evaluate(data_before_correction:str, data_after_correction: str, correct_data: str, correct_data2) -> None:
     """Evaluates the quality of the correction."""
-    print("Running the evaluation...", end = "\n" * 2)
+    print("Running the evaluation...", end = "\n")
 
 
-    print("Calculating Lavenshtein distance...")
     lavenshtein_distance_corrupted_original = round(jellyfish.levenshtein_distance(data_before_correction, correct_data), 3)
     lavenshtein_distance_corrected_and_original = round(jellyfish.levenshtein_distance(data_after_correction, correct_data), 3)
 
-    print("Calculating Jaro similarity...")
     jaro_similarity_corrupted_original = round(jellyfish.jaro_distance(data_before_correction, correct_data), 3)
     jaro_similarity_corrected_and_original = round(jellyfish.jaro_distance(data_after_correction, correct_data), 3)
 
-    print("Calculating Jaro-Winkler similarity...")
     jaro_winkler_similarity_corrupted_original  = round(jellyfish.jaro_winkler(data_before_correction, correct_data), 3)
     jaro_winkler_similarity_corrected_and_original = round(jellyfish.jaro_winkler(data_after_correction, correct_data), 3)
 
@@ -223,7 +220,7 @@ def evaluate(data_before_correction:str, data_after_correction: str, correct_dat
     accuracy_after_correction = round(accuracy(correct_data, data_after_correction), 3)
 
 
-    print("Used metrics are: Lavenshtein distance, Jaro similarity, Jaro-Winkler similarity, and accuracy as the ratio of total correct words.", end = "\n" * 2)
+    print("Used metrics are: Lavenshtein distance, Jaro similarity, Jaro-Winkler similarity, and accuracy as the ratio of total correct words.")
 
     #use prettytable to display the results
     t = prettytable.PrettyTable(["Metric", "Before restoration", "After restoration"])
