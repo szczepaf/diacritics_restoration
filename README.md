@@ -17,23 +17,30 @@ The results are following:
 DEV DATA
 Used metrics are: Lavenshtein distance, Jaro similarity, Jaro-Winkler similarity, and accuracy as the ratio of total correct words.
 
-+-------------------------+--------------------+-------------------+
-|          Metric         | Before restoration | After restoration |
-+-------------------------+--------------------+-------------------+
-|   Levenshtein distance  |        3546        |        434        |
-|     Jaro similarity     |       0.755        |       0.848       |
-| Jaro-Winkler similarity |       0.853        |       0.909       |
-|         Accuracy        |       0.484        |       0.884       |
-+-------------------------+--------------------+-------------------+
 
-EVAL DATA
-+-------------------------+--------------------+-------------------+
-|          Metric         | Before restoration | After restoration |
-+-------------------------+--------------------+-------------------+
-|   Levenshtein distance  |       13195        |        2167       |
-|     Jaro similarity     |       0.739        |       0.826       |
-| Jaro-Winkler similarity |       0.844        |       0.895       |
-|         Accuracy        |       0.501        |       0.868       |
-+-------------------------+--------------------+-------------------+
+
+---
+
+**BEFORE AND AFTER RESTORATION METRICS**
+
+| Metric | Before restoration | After restoration |
+| --- | --- | --- |
+| Levenshtein distance | 3546 | 434 |
+| Jaro similarity | 0.755 | 0.848 |
+| Jaro-Winkler similarity | 0.853 | 0.909 |
+| Accuracy | 0.484 | 0.884 |
+
+**EVAL DATA METRICS**
+
+| Metric | Before restoration | After restoration |
+| --- | --- | --- |
+| Levenshtein distance | 13195 | 2167 |
+| Jaro similarity | 0.739 | 0.826 |
+| Jaro-Winkler similarity | 0.844 | 0.895 |
+| Accuracy | 0.501 | 0.868 |
+
+---
+
+
 
 More information: https://ufal.mff.cuni.cz/courses/npfl124#assignments
