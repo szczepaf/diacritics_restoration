@@ -14,14 +14,13 @@ It follows these steps
 
 
 The results are following:
-DEV DATA
 Used metrics are: Lavenshtein distance, Jaro similarity, Jaro-Winkler similarity, and accuracy as the ratio of total correct words.
 
 
 
 ---
 
-**BEFORE AND AFTER RESTORATION METRICS**
+**BEFORE AND AFTER RESTORATION METRICS - DEV DATA**
 
 | Metric | Before restoration | After restoration |
 | --- | --- | --- |
